@@ -1,0 +1,348 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CSV Helper</title>
+  <style>
+    :root {
+      --bg-color: #ffffff;
+      --text-color: #000000;
+      --pre-bg: #f4f4f4;
+      --accent-bg: #f0f0f0;
+    }
+    body.dark {
+      --bg-color: #121212;
+      --text-color: #f0f0f0;
+      --pre-bg: #2a2a2a;
+      --accent-bg: #333;
+    }
+    body {
+      font-family: system-ui, sans-serif;
+      background-color: var(--bg-color);
+      color: var(--text-color);
+      margin: 0;
+      padding: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      min-height: 100vh;
+      transition: background-color 0.3s, color 0.3s;
+    }
+    .container {
+      width: 100%;
+      max-width: 700px;
+      padding: 20px;
+      box-sizing: border-box;
+    }
+    header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 20px;
+    }
+    .header-controls {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .lang-dropdown {
+      position: relative;
+    }
+    .lang-button {
+      background: none;
+      border: none;
+      font-size: 16px;
+      cursor: pointer;
+      color: var(--text-color);
+    }
+    .lang-list {
+      display: none;
+      position: absolute;
+      background: var(--accent-bg);
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      margin-top: 5px;
+      z-index: 1;
+      min-width: max-content;
+    }
+    .lang-list div {
+      padding: 8px 12px;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+    .lang-list div:hover {
+      background-color: #eee;
+    }
+    .theme-toggle-icon {
+      background: none;
+      border: none;
+      cursor: pointer;
+      color: inherit;
+      width: 30px;
+      height: 30px;
+      padding: 0;
+    }
+    .drop-zone {
+      border: 2px dashed #aaa;
+      border-radius: 6px;
+      padding: 20px;
+      text-align: center;
+      margin: 10px 0;
+      transition: background-color 0.3s;
+    }
+    .drop-zone.dragover {
+      background-color: var(--accent-bg);
+    }
+    select, button {
+      margin: 10px 0;
+      padding: 8px;
+      font-size: 16px;
+      width: 100%;
+    }
+    pre {
+      background: var(--pre-bg);
+      padding: 10px;
+      border-radius: 6px;
+      max-height: 300px;
+      overflow: auto;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+    .copy-section {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      position: relative;
+    }
+    .copy-button {
+      background: none;
+      border: none;
+      cursor: pointer;
+      font-size: 18px;
+      color: inherit;
+      position: relative;
+    }
+    .copied-feedback {
+      position: absolute;
+      top: -25px;
+      right: 0;
+      background: #dff0d8;
+      color: #3c763d;
+      padding: 4px 8px;
+      border-radius: 4px;
+      font-size: 14px;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.3s ease-in-out;
+    }
+    .copied-feedback.visible {
+      opacity: 1;
+    }
+  </style>
+</head>
+<body class="light">
+  <div class="container">
+    <header>
+      <h1>CSV Helper</h1>
+      <div class="header-controls">
+        <div class="lang-dropdown" id="langDropdown">
+          <button class="lang-button" id="langDisplay">🇬🇧 EN</button>
+          <div class="lang-list" id="langList"></div>
+        </div>
+        <button class="theme-toggle-icon" id="themeToggle">🌓</button>
+      </div>
+    </header>
+
+    <input type="file" id="csvFile" accept=".csv" hidden />
+    <div class="drop-zone" id="dropZone"></div>
+
+    <div id="columnSelector" style="display:none">
+      <label for="columns" id="chooseColumn"></label>
+      <select id="columns"></select>
+      <label for="format" id="chooseFormat"></label>
+      <select id="format">
+        <option value="comma">Comma Separated</option>
+        <option value="space">Space Separated</option>
+        <option value="semicolon">Semicolon Separated</option>
+        <option value="pipe">Pipe Separated</option>
+        <option value="json">JSON Array</option>
+        <option value="quoted">Quoted CSV</option>
+        <option value="newline">New Line</option>
+      </select>
+      <button id="generateButton"></button>
+    </div>
+
+    <div class="copy-section">
+      <h3 id="outputHeader"></h3>
+      <div>
+        <button class="copy-button" id="copyBtn">📋</button>
+        <span class="copied-feedback" id="copiedFeedback"></span>
+      </div>
+    </div>
+    <pre id="output"><span id="outputText"></span></pre>
+    <button id="downloadButton"></button>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+  <script>
+    const elements = {
+      langDropdown: document.getElementById('langDropdown'),
+      langDisplay: document.getElementById('langDisplay'),
+      langList: document.getElementById('langList'),
+      themeToggle: document.getElementById('themeToggle'),
+      dropZone: document.getElementById('dropZone'),
+      csvFile: document.getElementById('csvFile'),
+      columns: document.getElementById('columns'),
+      columnSelector: document.getElementById('columnSelector'),
+      format: document.getElementById('format'),
+      outputText: document.getElementById('outputText'),
+      outputHeader: document.getElementById('outputHeader'),
+      chooseColumn: document.getElementById('chooseColumn'),
+      chooseFormat: document.getElementById('chooseFormat'),
+      generateButton: document.getElementById('generateButton'),
+      copiedFeedback: document.getElementById('copiedFeedback'),
+      copyBtn: document.getElementById('copyBtn'),
+      downloadButton: document.getElementById('downloadButton')
+    };
+
+    const langOptions = {
+      en: { flag: "🇬🇧", label: "EN", output: "Output", copied: "Copied!", chooseColumn: "Choose column:", chooseFormat: "Choose format:", generate: "Generate Output", download: "Download", drop: "Drop CSV file here or click to select" },
+      pt: { flag: "🇵🇹", label: "PT", output: "Saída", copied: "Copiado!", chooseColumn: "Escolha a coluna:", chooseFormat: "Escolha o formato:", generate: "Gerar Saída", download: "Baixar", drop: "Solte o arquivo CSV aqui ou clique para selecionar" },
+      fr: { flag: "🇫🇷", label: "FR", output: "Sortie", copied: "Copié!", chooseColumn: "Choisissez la colonne:", chooseFormat: "Choisissez le format:", generate: "Générer la sortie", download: "Télécharger", drop: "Déposez le fichier CSV ici ou cliquez pour sélectionner" },
+      de: { flag: "🇩🇪", label: "DE", output: "Ausgabe", copied: "Kopiert!", chooseColumn: "Spalte wählen:", chooseFormat: "Format wählen:", generate: "Ausgabe erstellen", download: "Herunterladen", drop: "CSV-Datei hier ablegen oder klicken, um auszuwählen" },
+      es: { flag: "🇪🇸", label: "ES", output: "Salida", copied: "¡Copiado!", chooseColumn: "Elija la columna:", chooseFormat: "Elija el formato:", generate: "Generar salida", download: "Descargar", drop: "Suelte el archivo CSV aquí o haga clic para seleccionar" }
+    };
+
+    let currentLang = 'en';
+
+    function setLanguage(lang) {
+      currentLang = lang;
+      const t = langOptions[lang];
+      elements.langDisplay.textContent = `${t.flag} ${t.label}`;
+      elements.outputHeader.textContent = t.output;
+      elements.copiedFeedback.textContent = t.copied;
+      elements.chooseColumn.textContent = t.chooseColumn;
+      elements.chooseFormat.textContent = t.chooseFormat;
+      elements.generateButton.textContent = t.generate;
+      elements.downloadButton.textContent = t.download;
+      elements.dropZone.textContent = t.drop;
+      elements.langList.style.display = 'none';
+    }
+
+    function populateLanguageList() {
+      elements.langList.innerHTML = Object.entries(langOptions).map(([code, { flag, label }]) =>
+        `<div data-lang="${code}">${flag} ${label}</div>`
+      ).join('');
+    }
+
+    function toggleTheme() {
+      document.body.classList.toggle('dark');
+    }
+
+    function sanitizeCSV(value) {
+      return /^[=+\-@]/.test(value) ? `'${value}` : value;
+    }
+
+    function parseCSV(file) {
+      Papa.parse(file, {
+        header: true,
+        skipEmptyLines: true,
+        complete: ({ data }) => {
+          if (!data.length) return;
+          window.csvData = data;
+          const headers = Object.keys(data[0]);
+          elements.columns.innerHTML = headers.map(h => `<option value="${h}">${h}</option>`).join('');
+          elements.columnSelector.style.display = 'block';
+        }
+      });
+    }
+
+    function generateOutput() {
+      const col = elements.columns.value;
+      const format = elements.format.value;
+      const values = window.csvData.map(row => sanitizeCSV(row[col])).filter(Boolean);
+      let output;
+      switch (format) {
+        case 'comma': output = values.join(','); break;
+        case 'space': output = values.join(' '); break;
+        case 'semicolon': output = values.join(';'); break;
+        case 'pipe': output = values.join('|'); break;
+        case 'json': output = JSON.stringify(values); break;
+        case 'quoted': output = values.map(v => `"${v}"`).join(','); break;
+        case 'newline': default: output = values.join('\n'); break;
+      }
+      elements.outputText.textContent = output;
+    }
+
+    function copyToClipboard() {
+      const text = elements.outputText.textContent.trim();
+      if (!text) return;
+      navigator.clipboard.writeText(text).then(() => {
+        elements.copiedFeedback.classList.add('visible');
+        setTimeout(() => elements.copiedFeedback.classList.remove('visible'), 1500);
+      });
+    }
+
+    function downloadOutput() {
+      const text = elements.outputText.textContent.trim();
+      if (!text) return alert("No output to download.");
+      const format = confirm("Download as CSV? Click Cancel for TXT.") ? 'csv' : 'txt';
+      const blob = new Blob([text], { type: format === 'csv' ? 'text/csv' : 'text/plain' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `output.${format}`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    }
+
+    function initEventListeners() {
+      document.addEventListener('click', (e) => {
+        if (!elements.langDropdown.contains(e.target)) {
+          elements.langList.style.display = 'none';
+        }
+      });
+
+      elements.langDisplay.addEventListener('click', () => {
+        elements.langList.style.display = elements.langList.style.display === 'block' ? 'none' : 'block';
+      });
+
+      elements.langList.addEventListener('click', e => {
+        if (e.target.dataset.lang) setLanguage(e.target.dataset.lang);
+      });
+
+      elements.themeToggle.addEventListener('click', toggleTheme);
+
+      elements.dropZone.addEventListener('click', () => elements.csvFile.click());
+      elements.dropZone.addEventListener('dragover', e => { e.preventDefault(); elements.dropZone.classList.add('dragover'); });
+      elements.dropZone.addEventListener('dragleave', () => elements.dropZone.classList.remove('dragover'));
+      elements.dropZone.addEventListener('drop', e => {
+        e.preventDefault();
+        elements.dropZone.classList.remove('dragover');
+        if (e.dataTransfer.files.length) {
+          elements.csvFile.files = e.dataTransfer.files;
+          parseCSV(elements.csvFile.files[0]);
+        }
+      });
+
+      elements.csvFile.addEventListener('change', e => {
+        if (e.target.files.length) parseCSV(e.target.files[0]);
+      });
+
+      elements.generateButton.addEventListener('click', generateOutput);
+      elements.copyBtn.addEventListener('click', copyToClipboard);
+      elements.downloadButton.addEventListener('click', downloadOutput);
+    }
+
+    window.onload = () => {
+      const defaultLang = navigator.language.slice(0, 2);
+      setLanguage(langOptions[defaultLang] ? defaultLang : 'en');
+      populateLanguageList();
+      initEventListeners();
+    };
+  </script>
+</body>
+</html>
