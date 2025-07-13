@@ -1,6 +1,6 @@
 # CSV Helper
 
-**CSV Helper** is a lightweight, client-side web tool that allows users to upload CSV files, select a column, and convert its data into various formats like comma-separated, JSON array, newline-separated, and more. It includes support for theme toggling (light/dark mode) and multiple languages.
+**CSV Helper** is a lightweight, client-side web tool that allows users to upload CSV files, select a column, and convert its data into various formats like comma-separated, JSON array, newline-separated, and more. It includes support for theme toggling (light/dark mode).
 
 ## 🚀 Features
 
@@ -16,7 +16,6 @@
   * Quoted CSV
   * New Line
 * 🌗 Dark/Light theme toggle
-* 🌍 Multi-language support: English, Portuguese, French, German, Spanish
 * 📋 Copy to clipboard and file download (CSV or TXT)
 
 ---
